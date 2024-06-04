@@ -1,6 +1,6 @@
-use std::{error::Error, fs, env};
+use std::{env, error::Error, fs};
 
-pub fn run(config: Config) -> Result<(), Box<dyn Error>>   {
+pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let contents = fs::read_to_string(config.filename)?;
 
     let results = if config.ignore_case {
@@ -17,44 +17,36 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>>   {
 }
 
 pub fn search_case_sensitive<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
-    let mut result = Vec::new();
-    for line in contents.lines() {
-        if line.contains(query) {
-            result.push(line);
-        }
-    }
-
-    result
+    contents.lines().filter(|x| x.contains(query)).collect()
 }
 
 pub fn search_case_insensitive<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
-    let query = query.to_lowercase();
-    let mut result = Vec::new();
-    
-    for line in contents.lines() {
-        if line.to_lowercase().contains(&query) {
-            result.push(line);
-        }
-    }
-
-    result
+    contents
+        .lines()
+        .filter(|x| x.to_lowercase().contains(&query.to_lowercase()))
+        .collect()
 }
 
-pub struct Config<'a> {
-    pub query: &'a str,
-    pub filename: &'a str,
+pub struct Config {
+    pub query: String,
+    pub filename: String,
     pub ignore_case: bool,
-    
 }
 
-impl Config<'_> {
-    pub fn new(args: &[String]) -> Result<Config, &'static str> {
-        if args.len() != 3 {
-            return Err("Incorrect number of arguments.");
-        }
+impl Config {
+    pub fn build(mut args: impl Iterator<Item = String>) -> Result<Config, &'static str> {
+        args.next();
 
-        let query = &args.get(1).ok_or("Can not get query")?;
-        let filename = &args.get(2).ok_or("Can not get filename")?;
+        let query = match args.next() {
+            Some(arg) => arg,
+            None => return Err("Didn't get a query string"),
+        };
+
+        let filename = match args.next() {
+            Some(arg) => arg,
+            None => return Err("Didn't get a file path"),
+        };
+
         let ignore_case = env::var("IGNORE_CASE").is_ok();
 
         Ok(Config {
@@ -68,7 +60,7 @@ impl Config<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn case_sensitive() {
         let query = "duct";
